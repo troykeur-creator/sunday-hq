@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sunday HQ — NFL Scores, Standings & Scouting</title>
+<meta name="theme-color" id="metaTheme" content="#0A100D">
+<meta property="og:title" content="Sunday HQ">
+<meta property="og:description" content="Live NFL scores, standings, and AI scouting — pick your team.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --field:#0A100D;          /* midnight turf */
+  --turf:#121A15;           /* card surface */
+  --turf2:#18231C;          /* raised surface */
+  --line:rgba(242,244,239,.08);
+  --chalk:#F2F4EF;
+  --chalk-dim:#9AA69E;
+  --chalk-faint:#5E6B62;
+  --live:#FF4D4D;
+  --win:#4CC38A;
+  --team:#0076B6;           /* overwritten by team theme */
+  --team-glow:#3AA7E0;
+  --team2:#B0B7BC;
+  --r:16px; --r-sm:10px;
+  --nav-h:66px;
+  --display:'Saira Condensed',system-ui,sans-serif;
+  --body:'Public Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  background:var(--field);color:var(--chalk);font-family:var(--body);
+  font-size:15px;line-height:1.45;overscroll-behavior-y:none;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+img{display:block}
+::selection{background:var(--team);color:#fff}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ============ TYPE ============ */
+.eyebrow{
+  font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--chalk-dim);display:flex;align-items:center;gap:8px;
+}
+.eyebrow::before{content:'';width:14px;height:8px;border-left:2px solid var(--team-glow);border-right:2px solid var(--team-glow);opacity:.9}
+.display{font-family:var(--display);font-weight:700;letter-spacing:.01em}
+.num{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ============ APP FRAME ============ */
+.wrap{max-width:560px;margin:0 auto;padding:0 14px}
+.screen{animation:fadeUp .25s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ============ HERO ============ */
+.hero{
+  position:relative;overflow:hidden;border-radius:0 0 24px 24px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 9.8%,rgba(242,244,239,.05) 9.8% 10%),
+    linear-gradient(160deg,color-mix(in srgb,var(--team) 38%,var(--field)) 0%,var(--field) 78%);
+  padding:calc(14px + env(safe-area-inset-top)) 16px 18px;
+}
+.hero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.brand small{font-weight:500;font-size:11px;letter-spacing:.18em;color:var(--chalk-dim)}
+.icon-btn{width:38px;height:38px;border-radius:12px;background:rgba(242,244,239,.08);display:grid;place-items:center;transition:background .15s}
+.icon-btn:active{background:rgba(242,244,239,.16)}
+.hero-mini{
+  position:sticky;top:0;z-index:40;height:56px;
+  display:flex;align-items:center;gap:10px;padding:0 16px;
+  padding-top:env(safe-area-inset-top);height:calc(56px + env(safe-area-inset-top));
+  background:color-mix(in srgb,var(--field) 82%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.hero-mini img{width:26px;height:26px}
+.hero-mini .t{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.03em;flex:1}
+
+/* ============ NEXT GAME CARD ============ */
+.next-card{
+  background:rgba(10,16,13,.55);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px;backdrop-filter:blur(6px);
+}
+.next-vs{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 6px}
+.next-team{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+.next-team img{width:52px;height:52px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+.next-team .ab{font-family:var(--display);font-weight:700;font-size:18px}
+.next-team .rec{font-size:11px;color:var(--chalk-dim)}
+.next-mid{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:86px}
+.next-mid .at{font-size:11px;letter-spacing:.2em;color:var(--chalk-faint)}
+.countdown{display:flex;gap:8px}
+.cd-cell{text-align:center}
+.cd-cell .num{font-size:24px;line-height:1}
+.cd-cell span{font-size:9px;letter-spacing:.12em;color:var(--chalk-dim);text-transform:uppercase}
+.next-meta{display:flex;justify-content:center;gap:10px;font-size:12px;color:var(--chalk-dim);flex-wrap:wrap}
+.tap-hint{margin-top:10px;text-align:center;font-size:11px;color:var(--chalk-faint);letter-spacing:.06em}
+
+/* ============ CHIP RAIL ============ */
+.rail{
+  display:flex;gap:8px;overflow-x:auto;padding:12px 14px;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;scroll-padding:0 40px;
+}
+.rail::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;padding:7px 14px;border-radius:999px;border:1px solid var(--line);
+  background:var(--turf);font-family:var(--display);font-weight:600;font-size:14px;
+  letter-spacing:.05em;color:var(--chalk-dim);transition:all .15s;
+}
+.chip.on{background:var(--team);border-color:var(--team);color:var(--team-ink,#fff);box-shadow:0 2px 14px color-mix(in srgb,var(--team) 45%,transparent)}
+.chip.post{border-style:dashed}
+
+/* ============ GAME CARDS ============ */
+.card{
+  background:var(--turf);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:10px;transition:transform .12s,background .15s;
+}
+.card:active{transform:scale(.985);background:var(--turf2)}
+.card.fav{border-color:color-mix(in srgb,var(--team-glow) 50%,var(--line))}
+.g-row{display:flex;align-items:center;gap:10px;padding:5px 0}
+.g-row img{width:30px;height:30px}
+.g-row .ab{font-family:var(--display);font-weight:700;font-size:17px;width:46px}
+.g-row .rec{font-size:11px;color:var(--chalk-faint);flex:1}
+.g-row .sc{font-size:24px;min-width:38px;text-align:right}
+.g-row.loser{opacity:.55}
+.poss{width:8px;height:8px;border-radius:50%;background:var(--team-glow);box-shadow:0 0 8px var(--team-glow)}
+.g-status{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:8px;font-size:12px;color:var(--chalk-dim)}
+.live-dot{display:inline-flex;align-items:center;gap:6px;color:var(--live);font-weight:700;font-size:12px;letter-spacing:.08em}
+.live-dot::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--live);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.dd{font-size:12px;color:var(--chalk)}
+.final-tag{font-family:var(--display);font-weight:700;letter-spacing:.1em;font-size:13px}
+
+/* ============ FIELD PROB BAR (signature) ============ */
+.fieldbar{margin:14px 0}
+.fieldbar-track{
+  position:relative;height:34px;border-radius:8px;overflow:hidden;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(242,244,239,.14) calc(10% - 1px) 10%),
+    #14201A;
+  border:1px solid var(--line);
+}
+.fieldbar-fill{position:absolute;inset:0 auto 0 0;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.fieldbar-mark{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--chalk);border-radius:2px;transition:left .6s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 6px rgba(0,0,0,.6)}
+.fieldbar-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px}
+.fieldbar-row img{width:20px;height:20px;display:inline-block;vertical-align:-5px;margin-right:5px}
+.fieldbar-row b{font-family:var(--display);font-size:15px}
+
+/* ============ SECTIONS / LISTS ============ */
+.section{padding:16px 0 4px}
+.section .eyebrow{margin-bottom:10px}
+.leader{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.leader:last-child{border-bottom:none}
+.leader .cat{width:44px;color:var(--chalk-faint);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.leader .who{flex:1;font-weight:600}
+.leader .val{color:var(--chalk-dim)}
+.playline{padding:8px 10px;border-left:3px solid var(--team);background:var(--turf2);border-radius:0 10px 10px 0;font-size:13px;color:var(--chalk-dim);margin:8px 0}
+
+/* ============ STANDINGS ============ */
+.div-table{background:var(--turf);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.div-table h3{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.06em;padding:10px 14px;border-bottom:1px solid var(--line);color:var(--chalk-dim)}
+.st-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.st-row:last-child{border-bottom:none}
+.st-row img{width:24px;height:24px}
+.st-row .ab{font-family:var(--display);font-weight:700;font-size:15px;flex:1}
+.st-row .wl{min-width:52px;text-align:right;font-size:15px}
+.st-row .pct{min-width:44px;text-align:right;color:var(--chalk-dim);font-size:12px}
+.st-row.fav{background:color-mix(in srgb,var(--team) 14%,transparent)}
+
+/* ============ SHEET ============ */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80;animation:fade .2s both}
+@keyframes fade{from{opacity:0}}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:90;max-width:560px;margin:0 auto;
+  background:var(--turf);border-radius:22px 22px 0 0;border:1px solid var(--line);border-bottom:none;
+  max-height:88vh;display:flex;flex-direction:column;
+  animation:slideUp .28s cubic-bezier(.2,.8,.2,1) both;touch-action:none;
+}
+@keyframes slideUp{from{transform:translateY(100%)}}
+.sheet-grab{padding:10px 0 6px;display:grid;place-items:center;cursor:grab;flex:0 0 auto}
+.sheet-grab::before{content:'';width:40px;height:4px;border-radius:2px;background:var(--chalk-faint)}
+.sheet-body{overflow-y:auto;padding:0 16px 28px;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.sheet-head{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.sheet-head img{width:44px;height:44px}
+.sheet-head .t{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.1}
+.sheet-head .s{font-size:12px;color:var(--chalk-dim)}
+.sheet-score{font-family:var(--display);font-weight:700;font-size:30px;margin-left:auto;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15}
+
+/* ============ AI / HYPE ============ */
+.ai-btn{
+  width:100%;padding:13px;border-radius:14px;font-family:var(--display);font-weight:700;
+  font-size:16px;letter-spacing:.06em;background:var(--team);color:var(--team-ink,#fff);
+  box-shadow:0 4px 18px color-mix(in srgb,var(--team) 40%,transparent);transition:transform .12s;
+}
+.ai-btn:active{transform:scale(.97)}
+.ai-btn:disabled{opacity:.5;box-shadow:none}
+.ai-out{white-space:pre-wrap;font-size:14px;line-height:1.6;background:var(--turf2);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+.hype-card{
+  border-radius:18px;padding:20px 18px;margin-top:12px;position:relative;overflow:hidden;
+  background:linear-gradient(150deg,var(--team) 0%,color-mix(in srgb,var(--team) 30%,#000) 100%);
+  color:var(--team-ink,#fff);box-shadow:0 8px 30px color-mix(in srgb,var(--team) 35%,transparent);
+}
+.hype-card::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 19%,rgba(255,255,255,.06) 19% 20%)}
+.hype-card img{width:44px;height:44px;margin-bottom:10px;position:relative;z-index:1}
+.hype-card p{position:relative;z-index:1;font-size:15px;line-height:1.55;font-weight:500}
+.hype-card .cry{font-family:var(--display);font-weight:700;font-size:19px;margin-top:10px;letter-spacing:.04em}
+
+/* ============ ONBOARDING ============ */
+.firstrun{position:fixed;inset:0;z-index:100;background:var(--field);overflow-y:auto;padding:calc(24px + env(safe-area-inset-top)) 18px 40px}
+.firstrun h1{font-family:var(--display);font-weight:700;font-size:34px;line-height:1.05;margin:8px 0 4px}
+.firstrun .sub{color:var(--chalk-dim);margin-bottom:20px}
+.divgrid h4{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--chalk-faint);margin:18px 0 8px}
+.teamgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.team-pick{background:var(--turf);border:1px solid var(--line);border-radius:14px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .15s}
+.team-pick img{width:36px;height:36px}
+.team-pick span{font-family:var(--display);font-weight:700;font-size:13px}
+.team-pick:active{transform:scale(.94)}
+.team-pick.on{border-color:var(--team-glow);background:color-mix(in srgb,var(--team) 20%,var(--turf))}
+
+/* ============ SETTINGS ============ */
+.set-row{padding:14px 0;border-bottom:1px solid var(--line)}
+.set-row label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--chalk-dim);margin-bottom:6px}
+.set-row input{width:100%;background:var(--turf2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--chalk);font-size:14px;font-family:var(--body)}
+.set-row input:focus{outline:2px solid var(--team-glow);outline-offset:-1px}
+.set-note{font-size:12px;color:var(--chalk-faint);margin-top:6px;line-height:1.5}
+.set-btn{margin-top:8px;padding:10px 16px;border-radius:10px;background:var(--turf2);border:1px solid var(--line);font-weight:600;font-size:13px}
+
+/* ============ NAV ============ */
+.nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:70;max-width:560px;margin:0 auto;
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);
+  display:flex;background:color-mix(in srgb,var(--field) 80%,transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);
+}
+.nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--chalk-faint);font-size:10px;letter-spacing:.06em;font-weight:600;position:relative}
+.nav button.on{color:var(--chalk)}
+.nav button.on::before{content:'';position:absolute;top:0;width:38px;height:3px;border-radius:0 0 3px 3px;background:var(--team-glow)}
+.nav svg{width:22px;height:22px}
+
+/* ============ TOAST / SKELETON / EMPTY ============ */
+.toast{
+  position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 14px);left:50%;
+  transform:translateX(-50%);z-index:120;background:var(--turf2);border:1px solid var(--line);
+  color:var(--chalk);padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);animation:toastIn .25s both;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}}
+.skel{border-radius:var(--r);background:linear-gradient(100deg,var(--turf) 40%,var(--turf2) 50%,var(--turf) 60%);background-size:200% 100%;animation:shimmer 1.3s infinite;margin-bottom:10px}
+@keyframes shimmer{to{background-position:-200% 0}}
+.empty{text-align:center;padding:44px 24px;color:var(--chalk-dim)}
+.empty .ic{font-size:36px;margin-bottom:10px}
+.empty b{display:block;color:var(--chalk);font-family:var(--display);font-size:18px;letter-spacing:.03em;margin-bottom:4px}
+.empty p{font-size:13px;line-height:1.5}
+.refresh-btn{margin:4px auto 0;display:block;font-size:12px;color:var(--chalk-dim);padding:8px 14px;border:1px solid var(--line);border-radius:999px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--team-glow);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState,useEffect,useRef,useMemo,useCallback} = React;
+
+/* ================= TEAMS ================= */
+const TEAMS = [
+ {id:'2', ab:'BUF',city:'Buffalo',name:'Bills',div:'AFC East',c1:'#00338D',c2:'#C60C30'},
+ {id:'15',ab:'MIA',city:'Miami',name:'Dolphins',div:'AFC East',c1:'#008E97',c2:'#FC4C02'},
+ {id:'17',ab:'NE', city:'New England',name:'Patriots',div:'AFC East',c1:'#002244',c2:'#C60C30'},
+ {id:'20',ab:'NYJ',city:'New York',name:'Jets',div:'AFC East',c1:'#125740',c2:'#FFFFFF'},
+ {id:'33',ab:'BAL',city:'Baltimore',name:'Ravens',div:'AFC North',c1:'#241773',c2:'#9E7C0C'},
+ {id:'4', ab:'CIN',city:'Cincinnati',name:'Bengals',div:'AFC North',c1:'#FB4F14',c2:'#000000'},
+ {id:'5', ab:'CLE',city:'Cleveland',name:'Browns',div:'AFC North',c1:'#FF3C00',c2:'#311D00'},
+ {id:'23',ab:'PIT',city:'Pittsburgh',name:'Steelers',div:'AFC North',c1:'#FFB612',c2:'#101820'},
+ {id:'34',ab:'HOU',city:'Houston',name:'Texans',div:'AFC South',c1:'#03202F',c2:'#A71930'},
+ {id:'11',ab:'IND',city:'Indianapolis',name:'Colts',div:'AFC South',c1:'#002C5F',c2:'#A2AAAD'},
+ {id:'30',ab:'JAX',city:'Jacksonville',name:'Jaguars',div:'AFC South',c1:'#006778',c2:'#D7A22A'},
+ {id:'10',ab:'TEN',city:'Tennessee',name:'Titans',div:'AFC South',c1:'#0C2340',c2:'#4B92DB'},
+ {id:'7', ab:'DEN',city:'Denver',name:'Broncos',div:'AFC West',c1:'#FB4F14',c2:'#002244'},
+ {id:'12',ab:'KC', city:'Kansas City',name:'Chiefs',div:'AFC West',c1:'#E31837',c2:'#FFB81C'},
+ {id:'13',ab:'LV', city:'Las Vegas',name:'Raiders',div:'AFC West',c1:'#A5ACAF',c2:'#000000'},
+ {id:'24',ab:'LAC',city:'Los Angeles',name:'Chargers',div:'AFC West',c1:'#0080C6',c2:'#FFC20E'},
+ {id:'6', ab:'DAL',city:'Dallas',name:'Cowboys',div:'NFC East',c1:'#003594',c2:'#869397'},
+ {id:'19',ab:'NYG',city:'New York',name:'Giants',div:'NFC East',c1:'#0B2265',c2:'#A71930'},
+ {id:'21',ab:'PHI',city:'Philadelphia',name:'Eagles',div:'NFC East',c1:'#004C54',c2:'#A5ACAF'},
+ {id:'28',ab:'WSH',city:'Washington',name:'Commanders',div:'NFC East',c1:'#5A1414',c2:'#FFB612'},
+ {id:'3', ab:'CHI',city:'Chicago',name:'Bears',div:'NFC North',c1:'#C83803',c2:'#0B162A'},
+ {id:'8', ab:'DET',city:'Detroit',name:'Lions',div:'NFC North',c1:'#0076B6',c2:'#B0B7BC'},
+ {id:'9', ab:'GB', city:'Green Bay',name:'Packers',div:'NFC North',c1:'#203731',c2:'#FFB612'},
+ {id:'16',ab:'MIN',city:'Minnesota',name:'Vikings',div:'NFC North',c1:'#4F2683',c2:'#FFC62F'},
+ {id:'1', ab:'ATL',city:'Atlanta',name:'Falcons',div:'NFC South',c1:'#A71930',c2:'#000000'},
+ {id:'29',ab:'CAR',city:'Carolina',name:'Panthers',div:'NFC South',c1:'#0085CA',c2:'#101820'},
+ {id:'18',ab:'NO', city:'New Orleans',name:'Saints',div:'NFC South',c1:'#D3BC8D',c2:'#101820'},
+ {id:'27',ab:'TB', city:'Tampa Bay',name:'Buccaneers',div:'NFC South',c1:'#D50A0A',c2:'#34302B'},
+ {id:'22',ab:'ARI',city:'Arizona',name:'Cardinals',div:'NFC West',c1:'#97233F',c2:'#FFB612'},
+ {id:'14',ab:'LAR',city:'Los Angeles',name:'Rams',div:'NFC West',c1:'#003594',c2:'#FFA300'},
+ {id:'25',ab:'SF', city:'San Francisco',name:'49ers',div:'NFC West',c1:'#AA0000',c2:'#B3995D'},
+ {id:'26',ab:'SEA',city:'Seattle',name:'Seahawks',div:'NFC West',c1:'#002244',c2:'#69BE28'},
+];
+const DIVS = ['AFC East','AFC North','AFC South','AFC West','NFC East','NFC North','NFC South','NFC West'];
+const byAb = Object.fromEntries(TEAMS.map(t=>[t.ab,t]));
+const byId = Object.fromEntries(TEAMS.map(t=>[t.id,t]));
+const logo = ab => `https://a.espncdn.com/i/teamlogos/nfl/500/${(ab||'').toLowerCase()}.png`;
+
+/* ================= COLOR MATH (auto-brighten team accents for dark field) ================= */
+const hex2rgb = h => { const n=parseInt(h.replace('#',''),16); return [(n>>16)&255,(n>>8)&255,n&255]; };
+const rgb2hex = ([r,g,b]) => '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+const lum = h => { const [r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)}); return .2126*r+.7152*g+.0722*b; };
+const contrast = (a,b)=>{const l1=lum(a),l2=lum(b);return (Math.max(l1,l2)+.05)/(Math.min(l1,l2)+.05)};
+const lighten = (h,p)=>rgb2hex(hex2rgb(h).map(v=>v+(255-v)*p));
+const glowOf = h => { let c=h,i=0; while(contrast(c,'#0A100D')<3.4 && i<14){c=lighten(c,.13);i++} return c; };
+const inkOn = h => contrast('#FFFFFF',h) >= contrast('#101820',h) ? '#FFFFFF' : '#101820';
+function applyTheme(t){
+  const r=document.documentElement.style;
+  const base = lum(t.c1) < .02 ? t.c2 : t.c1;          // near-black primaries lean on alt color
+  r.setProperty('--team', base);
+  r.setProperty('--team2', t.c2);
+  r.setProperty('--team-glow', glowOf(base));
+  r.setProperty('--team-ink', inkOn(base));
+  const m=document.getElementById('metaTheme'); if(m) m.content='#0A100D';
+}
+
+/* ================= STORAGE / NET / MISC ================= */
+const store = {
+  get:(k,d)=>{try{const v=localStorage.getItem('shq:'+k);return v==null?d:JSON.parse(v)}catch{ return d }},
+  set:(k,v)=>{try{localStorage.setItem('shq:'+k,JSON.stringify(v))}catch{}}
+};
+async function fetchJSON(url,{timeout=12000}={}){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),timeout);
+  try{ const r=await fetch(url,{signal:c.signal}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
+const ESPN='https://site.api.espn.com/apis';
+const sbUrl = (t,w)=> t&&w ? `${ESPN}/site/v2/sports/football/nfl/scoreboard?seasontype=${t}&week=${w}` : `${ESPN}/site/v2/sports/football/nfl/scoreboard`;
+const teamUrl = id => `${ESPN}/site/v2/sports/football/nfl/teams/${id}`;
+const sumUrl = id => `${ESPN}/site/v2/sports/football/nfl/summary?event=${id}`;
+const stUrl = `${ESPN}/v2/sports/football/nfl/standings`;
+const safeHref = u => { try{ const x=new URL(u); return x.protocol==='https:'?x.href:null }catch{ return null } };
+const fmtDate = d => new Date(d).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+const haptic = ()=>{ try{ navigator.vibrate && navigator.vibrate(8) }catch{} };
+
+/* ================= AI ================= */
+/* Direct-from-browser, matching your standard pattern. In the Claude.ai preview no key is
+   needed; on GitHub Pages paste your key in More → Settings. Relay (/ai) wiring can be
+   added as a follow-up drop against your worker.js schema. */
+async function askClaude(prompt, maxTokens=800){
+  const key = store.get('apikey','');
+  const headers = {'Content-Type':'application/json'};
+  if(key){ headers['x-api-key']=key; headers['anthropic-version']='2023-06-01'; headers['anthropic-dangerous-direct-browser-access']='true'; }
+  const r = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers,
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
+  });
+  if(!r.ok) throw new Error('AI '+r.status);
+  const d = await r.json();
+  return (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+}
+
+/* ================= WEEK RAIL MODEL ================= */
+const WEEKS = [
+  ...[1,2,3].map(w=>({t:1,w,label:'P'+w})),
+  ...Array.from({length:18},(_,i)=>({t:2,w:i+1,label:'W'+(i+1)})),
+  {t:3,w:1,label:'WC'},{t:3,w:2,label:'DIV'},{t:3,w:3,label:'CONF'},{t:3,w:5,label:'SB'},
+];
+const weekKey = x => x ? x.t+':'+x.w : '';
+
+/* ================= SMALL PARTS ================= */
+function Toast({msg}){ return msg ? <div className="toast" role="status">{msg}</div> : null; }
+function Skel({h=86,n=4}){ return <>{Array.from({length:n},(_,i)=><div key={i} className="skel" style={{height:h}}/>)}</>; }
+function Empty({icon='🏈',title,body,onRetry}){
+  return <div className="empty"><div className="ic">{icon}</div><b>{title}</b><p>{body}</p>
+    {onRetry && <button className="refresh-btn" onClick={onRetry}>Try again</button>}</div>;
+}
+class ErrorBoundary extends React.Component{
+  constructor(p){super(p);this.state={err:null}}
+  static getDerivedStateFromError(e){return {err:e}}
+  render(){ return this.state.err
+    ? <Empty icon="🚧" title="Something broke" body="Reload the app. If it repeats, check your connection." onRetry={()=>location.reload()}/>
+    : this.props.children; }
+}
+const Icons = {
+  home:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>,
+  scores:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="9" ry="6" transform="rotate(-25 12 12)"/><path d="M9 14l6-4M10.5 15l.8-1.2M13.5 9l-.8 1.2"/></svg>,
+  standings:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 20V9M10 20V4M16 20v-8M22 20H2"/></svg>,
+  more:<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>,
+  gear:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6A7 7 0 0 0 19 12z"/></svg>,
+};
+
+/* ================= SHEET (drag-to-dismiss) ================= */
+function Sheet({onClose,children}){
+  const ref=useRef(null), startY=useRef(null), dy=useRef(0);
+  useEffect(()=>{
+    const onKey=e=>{ if(e.key==='Escape') onClose(); };
+    window.addEventListener('keydown',onKey);
+    return ()=>window.removeEventListener('keydown',onKey);
+  },[onClose]);
+  const onStart=e=>{ startY.current=e.touches[0].clientY; dy.current=0; };
+  const onMove=e=>{
+    if(startY.current==null) return;
+    const d=e.touches[0].clientY-startY.current;
+    if(d>0){ dy.current=d; if(ref.current) ref.current.style.transform=`translateY(${d}px)`; }
+  };
+  const onEnd=()=>{
+    const el=ref.current; if(!el) return;
+    if(dy.current>110){ onClose(); }
+    else { el.style.transition='transform .2s'; el.style.transform=''; setTimeout(()=>{ if(el) el.style.transition=''; },220); }
+    startY.current=null; dy.current=0;
+  };
+  return <>
+    <div className="scrim" onClick={onClose}/>
+    <div className="sheet" ref={ref}>
+      <div className="sheet-grab" onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}/>
+      <div className="sheet-body">{children}</div>
+    </div>
+  </>;
+}
+/* ================= EVENT PARSING ================= */
+function parseEvent(e){
+  try{
+    const c=e.competitions[0];
+    const home=c.competitors.find(x=>x.homeAway==='home');
+    const away=c.competitors.find(x=>x.homeAway==='away');
+    const st=e.status?.type||{};
+    return {
+      id:e.id, date:e.date,
+      state:st.state||'pre',                     // pre | in | post
+      detail:st.shortDetail||st.detail||'',
+      home:{ab:home.team.abbreviation,name:home.team.displayName,score:home.score,rec:home.records?.[0]?.summary||'',id:home.team.id,winner:home.winner},
+      away:{ab:away.team.abbreviation,name:away.team.displayName,score:away.score,rec:away.records?.[0]?.summary||'',id:away.team.id,winner:away.winner},
+      situation:c.situation||null,
+      odds:c.odds?.[0]||null,
+      broadcast:c.broadcasts?.[0]?.names?.join(', ')||'',
+      venue:c.venue?.fullName||'',
+    };
+  }catch{ return null; }
+}
+
+/* ================= GAME CARD ================= */
+function TeamRow({t,g}){
+  const poss = g.state==='in' && g.situation?.possession===t.id;
+  const loser = g.state==='post' && t.winner===false;
+  return <div className={'g-row'+(loser?' loser':'')}>
+    <img src={logo(t.ab)} alt="" loading="lazy"/>
+    <span className="ab">{t.ab}</span>
+    <span className="rec">{t.rec}</span>
+    {poss && <span className="poss" title="Possession"/>}
+    <span className="sc num">{g.state==='pre'?'':t.score}</span>
+  </div>;
+}
+function GameCard({g,fav,onOpen}){
+  const isFav = fav && (g.home.ab===fav||g.away.ab===fav);
+  return <div className={'card'+(isFav?' fav':'')} onClick={()=>{haptic();onOpen(g)}} role="button" tabIndex={0}
+              onKeyDown={e=>e.key==='Enter'&&onOpen(g)}>
+    <TeamRow t={g.away} g={g}/>
+    <TeamRow t={g.home} g={g}/>
+    <div className="g-status">
+      {g.state==='in'
+        ? <><span className="live-dot">LIVE · {g.detail}</span>{g.situation?.downDistanceText && <span className="dd">{g.situation.downDistanceText}</span>}</>
+        : g.state==='post'
+        ? <><span className="final-tag">FINAL{/OT/i.test(g.detail)?' / OT':''}</span><span>{g.broadcast}</span></>
+        : <><span>{fmtDate(g.date)}</span><span>{g.odds?.details||g.broadcast}</span></>}
+    </div>
+  </div>;
+}
+
+/* ================= FIELD PROB BAR — the signature ================= */
+function FieldBar({away,home,homePct}){
+  const hp=Math.round(homePct*100), ap=100-hp;
+  const at=byAb[away]||{c1:'#555'}, ht=byAb[home]||{c1:'#555'};
+  const ac=glowOf(lum(at.c1)<.02?at.c2:at.c1), hc=glowOf(lum(ht.c1)<.02?ht.c2:ht.c1);
+  return <div className="fieldbar">
+    <div className="fieldbar-track">
+      <div className="fieldbar-fill" style={{width:ap+'%',background:`linear-gradient(90deg,${ac}55,${ac}22)`,borderRight:'none'}}/>
+      <div className="fieldbar-fill" style={{left:'auto',right:0,width:hp+'%',background:`linear-gradient(270deg,${hc}55,${hc}22)`}}/>
+      <div className="fieldbar-mark" style={{left:`calc(${ap}% - 1px)`}}/>
+    </div>
+    <div className="fieldbar-row">
+      <span><img src={logo(away)} alt=""/> <b className="num">{ap}%</b></span>
+      <span style={{color:'var(--chalk-faint)',fontSize:11,letterSpacing:'.1em'}}>WIN PROBABILITY</span>
+      <span><b className="num">{hp}%</b> <img src={logo(home)} alt="" style={{marginRight:0,marginLeft:5}}/></span>
+    </div>
+  </div>;
+}
+
+/* ================= GAME SHEET ================= */
+function GameSheet({g,onClose,toast}){
+  const [sum,setSum]=useState(null), [err,setErr]=useState(false);
+  const [scout,setScout]=useState(''), [busy,setBusy]=useState(false);
+  useEffect(()=>{ let ok=true;
+    fetchJSON(sumUrl(g.id)).then(d=>ok&&setSum(d)).catch(()=>ok&&setErr(true));
+    return ()=>{ok=false};
+  },[g.id]);
+
+  const wp = sum?.winprobability?.length ? sum.winprobability[sum.winprobability.length-1].homeWinPercentage : null;
+  const leaders = useMemo(()=>{
+    const out=[];
+    try{
+      (sum?.leaders||[]).forEach(side=>{
+        const ab=side.team?.abbreviation;
+        (side.leaders||[]).forEach(cat=>{
+          const L=cat.leaders?.[0]; if(!L) return;
+          const label={passingYards:'PASS',rushingYards:'RUSH',receivingYards:'REC'}[cat.name]||cat.shortDisplayName||cat.name;
+          out.push({ab,cat:label,who:L.athlete?.shortName||'—',val:L.displayValue||''});
+        });
+      });
+    }catch{}
+    return out;
+  },[sum]);
+
+  const runScout=async()=>{
+    setBusy(true); haptic();
+    try{
+      const p=`You are a sharp NFL analyst. Preview this game in 130-170 words for a fan app.
+Matchup: ${g.away.name} (${g.away.rec}) at ${g.home.name} (${g.home.rec})
+When: ${fmtDate(g.date)} | Venue: ${g.venue||'TBD'} ${g.odds?.details?('| Line: '+g.odds.details):''}
+Status: ${g.state==='post'?('Final '+g.away.score+'-'+g.home.score+' — write a recap instead of a preview'):g.state==='in'?('Live, '+g.detail+', score '+g.away.score+'-'+g.home.score+' — assess the game state'):'Upcoming'}
+Format: 2 short paragraphs, then "Keys:" with three tight bullets (use • ), then one-line pick or takeaway. Plain text only.`;
+      setScout(await askClaude(p,700));
+    }catch(e){ toast('Scout failed — add your API key in Settings'); }
+    setBusy(false);
+  };
+
+  return <Sheet onClose={onClose}>
+    <div className="sheet-head">
+      <img src={logo(g.away.ab)} alt=""/>
+      <div><div className="t">{g.away.ab} @ {g.home.ab}</div>
+        <div className="s">{g.state==='pre'?fmtDate(g.date):g.detail}{g.venue?' · '+g.venue:''}</div></div>
+      <img src={logo(g.home.ab)} alt=""/>
+      {g.state!=='pre' && <div className="sheet-score">{g.away.score}<br/>{g.home.score}</div>}
+    </div>
+
+    {wp!=null
+      ? <FieldBar away={g.away.ab} home={g.home.ab} homePct={wp}/>
+      : g.state==='pre' && g.odds?.details
+      ? <div className="section"><div className="eyebrow">The line</div>
+          <div className="playline" style={{marginTop:0}}>{g.odds.details}{g.odds.overUnder?` · O/U ${g.odds.overUnder}`:''}</div></div>
+      : null}
+
+    {g.state==='in' && g.situation?.lastPlay?.text &&
+      <div className="section"><div className="eyebrow">Last play</div>
+        <div className="playline" style={{marginTop:0}}>{g.situation.lastPlay.text}</div></div>}
+
+    {leaders.length>0 &&
+      <div className="section"><div className="eyebrow">Leaders</div>
+        {leaders.map((l,i)=><div className="leader" key={i}>
+          <span className="cat">{l.cat}</span><span className="who">{l.who} <span style={{color:'var(--chalk-faint)',fontWeight:400}}>({l.ab})</span></span>
+          <span className="val">{l.val}</span></div>)}
+      </div>}
+
+    {err && !sum && <Empty icon="📡" title="No game detail" body="ESPN didn't return detail for this one yet."/>}
+
+    <div className="section">
+      <div className="eyebrow">AI scout</div>
+      <button className="ai-btn" onClick={runScout} disabled={busy}>
+        {busy?'Scouting…':g.state==='post'?'Build the recap':'Build the scouting report'}
+      </button>
+      {scout && <div className="ai-out">{scout}</div>}
+    </div>
+  </Sheet>;
+}
+
+/* ================= SCORES TAB ================= */
+function ScoresTab({fav,week,setWeek,games,loading,error,reload,onOpen}){
+  const railRef=useRef(null);
+  useEffect(()=>{
+    const el=railRef.current?.querySelector('.chip.on');
+    el && el.scrollIntoView({inline:'center',block:'nearest'});
+  },[weekKey(week)]);
+  const favGames = games.filter(g=>fav&&(g.home.ab===fav||g.away.ab===fav));
+  const rest = games.filter(g=>!favGames.includes(g));
+  return <div className="screen">
+    <div className="rail" ref={railRef}>
+      {WEEKS.map(x=><button key={weekKey(x)}
+        className={'chip'+(weekKey(x)===weekKey(week)?' on':'')+(x.t===3?' post':'')}
+        onClick={()=>{haptic();setWeek(x)}}>{x.label}</button>)}
+    </div>
+    <div className="wrap">
+      {loading ? <Skel/> :
+       error ? <Empty icon="📡" title="Scores unavailable" body="Couldn't reach ESPN. Check your connection." onRetry={reload}/> :
+       games.length===0 ? <Empty title="No games this week" body="Slide the rail to another week — the season picks back up there."/> :
+       <>
+        {[...favGames,...rest].map(g=><GameCard key={g.id} g={g} fav={fav} onOpen={onOpen}/>)}
+        <button className="refresh-btn" onClick={reload}>Refresh scores</button>
+       </>}
+    </div>
+  </div>;
+}
+/* ================= COUNTDOWN ================= */
+function Countdown({to}){
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{ const t=setInterval(()=>setNow(Date.now()),1000); return ()=>clearInterval(t); },[]);
+  const ms=new Date(to)-now; if(ms<=0) return <span className="display" style={{fontSize:18}}>Kickoff!</span>;
+  const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);
+  const cell=(v,l)=><div className="cd-cell"><div className="num">{String(v).padStart(2,'0')}</div><span>{l}</span></div>;
+  return <div className="countdown">{d>0&&cell(d,'days')}{cell(h,'hrs')}{cell(m,'min')}{d===0&&cell(s,'sec')}</div>;
+}
+
+/* ================= HOME TAB ================= */
+function HomeTab({fav,setSettingsOpen,onOpenGame,toast,standRows}){
+  const t=byAb[fav];
+  const [next,setNext]=useState(null), [nLoad,setNLoad]=useState(true);
+  const [hype,setHype]=useState(null), [hBusy,setHBusy]=useState(false);
+  useEffect(()=>{ let ok=true; setNLoad(true); setNext(null);
+    if(!t){setNLoad(false);return;}
+    fetchJSON(teamUrl(t.id)).then(d=>{
+      if(!ok) return;
+      const ev=d?.team?.nextEvent?.[0];
+      setNext(ev?parseEvent(ev):null); setNLoad(false);
+    }).catch(()=>{ok&&setNLoad(false)});
+    return ()=>{ok=false};
+  },[fav]);
+
+  const runHype=async()=>{
+    if(!next) return; setHBusy(true); haptic();
+    try{
+      const opp = next.home.ab===fav?next.away:next.home;
+      const txt=await askClaude(
+`Write a 45-65 word electric hype blurb for ${t.city} ${t.name} fans before they ${next.home.ab===fav?'host':'visit'} the ${opp.name} (${fmtDate(next.date)}). No hashtags, no emojis. Then on its own final line write a punchy 3-6 word rally cry in caps.`,300);
+      const lines=txt.split('\n').filter(Boolean);
+      setHype({body:lines.slice(0,-1).join(' '),cry:lines[lines.length-1]});
+    }catch{ toast('Hype failed — add your API key in Settings'); }
+    setHBusy(false);
+  };
+  const shareHype=async()=>{
+    if(!hype) return;
+    try{ await navigator.share({title:'Sunday HQ',text:hype.body+'\n'+hype.cry}); }
+    catch{ try{ await navigator.clipboard.writeText(hype.body+'\n'+hype.cry); toast('Copied to clipboard'); }catch{} }
+  };
+
+  const divRows = (standRows||[]).filter(r=>byAb[r.ab]?.div===t?.div);
+
+  return <div className="screen">
+    <div className="hero">
+      <div className="hero-top">
+        <div className="brand"><span>🏈</span> SUNDAY HQ <small>NFL</small></div>
+        <button className="icon-btn" aria-label="Settings" onClick={()=>setSettingsOpen(true)}>{Icons.gear}</button>
+      </div>
+      {nLoad ? <div className="skel" style={{height:150,marginBottom:0}}/> :
+       next ? <div className="next-card" onClick={()=>onOpenGame(next)} role="button" tabIndex={0}>
+          <div className="eyebrow">{next.state==='in'?'Live now':next.state==='post'?'Last game':'Next kickoff'}</div>
+          <div className="next-vs">
+            <div className="next-team"><img src={logo(next.away.ab)} alt=""/><span className="ab">{next.away.ab}</span><span className="rec">{next.away.rec}</span></div>
+            <div className="next-mid">
+              {next.state==='pre' ? <><span className="at">AT</span><Countdown to={next.date}/></>
+               : <div className="num" style={{fontSize:30}}>{next.away.score}–{next.home.score}</div>}
+              {next.state==='in' && <span className="live-dot">{next.detail}</span>}
+              {next.state==='post' && <span className="final-tag">FINAL</span>}
+            </div>
+            <div className="next-team"><img src={logo(next.home.ab)} alt=""/><span className="ab">{next.home.ab}</span><span className="rec">{next.home.rec}</span></div>
+          </div>
+          <div className="next-meta">
+            <span>{fmtDate(next.date)}</span>{next.broadcast&&<span>· {next.broadcast}</span>}{next.odds?.details&&<span>· {next.odds.details}</span>}
+          </div>
+          <div className="tap-hint">Tap for the full breakdown</div>
+        </div>
+       : <Empty title="No game on the books" body="ESPN hasn't posted the next matchup yet. Check back soon."/>}
+    </div>
+
+    <div className="wrap">
+      <div className="section">
+        <div className="eyebrow">Hype card</div>
+        <button className="ai-btn" onClick={runHype} disabled={hBusy||!next}>{hBusy?'Cooking…':'Build my hype card'}</button>
+        {hype && <div className="hype-card">
+          <img src={logo(fav)} alt=""/>
+          <p>{hype.body}</p>
+          <div className="cry">{hype.cry}</div>
+          <button className="set-btn" style={{position:'relative',zIndex:1,marginTop:14,background:'rgba(0,0,0,.25)',borderColor:'rgba(255,255,255,.25)'}} onClick={shareHype}>Share</button>
+        </div>}
+      </div>
+
+      {t && <div className="section">
+        <div className="eyebrow">{t.div}</div>
+        {divRows.length ? <div className="div-table" style={{marginTop:2}}>
+          {divRows.map(r=><div key={r.ab} className={'st-row'+(r.ab===fav?' fav':'')}>
+            <img src={logo(r.ab)} alt=""/><span className="ab">{r.ab}</span>
+            <span className="wl num">{r.rec}</span><span className="pct">{r.pct}</span></div>)}
+        </div> : <div className="skel" style={{height:120}}/>}
+      </div>}
+    </div>
+  </div>;
+}
+
+/* ================= STANDINGS TAB ================= */
+function StandingsTab({fav,rows,loading,error,reload}){
+  return <div className="screen wrap" style={{paddingTop:14}}>
+    <div className="eyebrow" style={{marginBottom:12}}>2026 standings</div>
+    {loading ? <Skel h={150} n={3}/> :
+     error||!rows.length ? <Empty icon="📊" title="Standings unavailable" body="ESPN didn't answer. Pull the season back up in a minute." onRetry={reload}/> :
+     DIVS.map(dv=>{
+       const rs=rows.filter(r=>byAb[r.ab]?.div===dv);
+       if(!rs.length) return null;
+       return <div className="div-table" key={dv}>
+         <h3>{dv}</h3>
+         {rs.map(r=><div key={r.ab} className={'st-row'+(r.ab===fav?' fav':'')}>
+           <img src={logo(r.ab)} alt=""/><span className="ab">{r.ab}</span>
+           <span className="wl num">{r.rec}</span><span className="pct">{r.pct}</span></div>)}
+       </div>;
+     })}
+  </div>;
+}
+
+/* ================= SETTINGS SHEET ================= */
+function SettingsSheet({onClose,fav,setFav,toast}){
+  const [key,setKey]=useState(store.get('apikey',''));
+  const save=()=>{ store.set('apikey',key.trim()); toast('Settings saved'); onClose(); };
+  return <Sheet onClose={onClose}>
+    <div className="sheet-head" style={{borderBottom:'1px solid var(--line)'}}>
+      <div className="t" style={{fontSize:22}}>Settings</div>
+    </div>
+    <div className="set-row">
+      <label>My team</label>
+      <div className="teamgrid" style={{gridTemplateColumns:'repeat(8,1fr)'}}>
+        {TEAMS.map(t=><button key={t.ab} className={'team-pick'+(t.ab===fav?' on':'')} style={{padding:'6px 2px'}}
+          onClick={()=>{setFav(t.ab);toast(t.name+' locked in')}}>
+          <img src={logo(t.ab)} alt={t.name} style={{width:26,height:26}}/></button>)}
+      </div>
+    </div>
+    <div className="set-row">
+      <label>Anthropic API key</label>
+      <input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off"/>
+      <div className="set-note">Needed for Scout and Hype on the live site. Stored only on this device. Leave blank when previewing inside Claude — no key needed there.</div>
+    </div>
+    <div className="set-row" style={{borderBottom:'none'}}>
+      <button className="ai-btn" onClick={save}>Save settings</button>
+      <div className="set-note" style={{marginTop:10}}>Sunday HQ v1 · Live data from ESPN's public API · Scores refresh every 30s during games.</div>
+    </div>
+  </Sheet>;
+}
+
+/* ================= ONBOARDING ================= */
+function FirstRun({onPick}){
+  return <div className="firstrun">
+    <div className="eyebrow">Sunday HQ</div>
+    <h1>Whose Sundays<br/>are these?</h1>
+    <div className="sub">Pick your team. The whole app wears their colors.</div>
+    <div className="divgrid">
+      {DIVS.map(dv=><div key={dv}>
+        <h4>{dv}</h4>
+        <div className="teamgrid">
+          {TEAMS.filter(t=>t.div===dv).map(t=>
+            <button key={t.ab} className="team-pick" onClick={()=>{haptic();onPick(t.ab)}}>
+              <img src={logo(t.ab)} alt={t.city+' '+t.name}/><span>{t.ab}</span>
+            </button>)}
+        </div>
+      </div>)}
+    </div>
+  </div>;
+}
+
+/* ================= APP ================= */
+function App(){
+  const [fav,setFavRaw]=useState(store.get('team',null));
+  const [tab,setTab]=useState('home');
+  const [week,setWeek]=useState(null);
+  const [games,setGames]=useState([]), [gLoad,setGLoad]=useState(true), [gErr,setGErr]=useState(false);
+  const [standRows,setStandRows]=useState([]), [sLoad,setSLoad]=useState(true), [sErr,setSErr]=useState(false);
+  const [sheetGame,setSheetGame]=useState(null);
+  const [settingsOpen,setSettingsOpen]=useState(false);
+  const [toastMsg,setToastMsg]=useState('');
+  const toastT=useRef(null);
+  const toast=useCallback(m=>{ setToastMsg(m); clearTimeout(toastT.current); toastT.current=setTimeout(()=>setToastMsg(''),2600); },[]);
+  const setFav=ab=>{ setFavRaw(ab); store.set('team',ab); };
+
+  useEffect(()=>{ const t=byAb[fav]; if(t) applyTheme(t); },[fav]);
+
+  /* online / offline */
+  useEffect(()=>{
+    const on=()=>toast('Back online'), off=()=>toast('Offline — showing last data');
+    window.addEventListener('online',on); window.addEventListener('offline',off);
+    return ()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off)};
+  },[toast]);
+
+  /* scoreboard load (also detects current week on first fetch) */
+  const loadScores=useCallback(async(w)=>{
+    setGLoad(true); setGErr(false);
+    try{
+      const d=await fetchJSON(w?sbUrl(w.t,w.w):sbUrl());
+      const evs=(d.events||[]).map(parseEvent).filter(Boolean)
+        .sort((a,b)=>new Date(a.date)-new Date(b.date));
+      setGames(evs);
+      if(!w){
+        const cur={t:d.season?.type??2,w:d.week?.number??1};
+        const match=WEEKS.find(x=>x.t===cur.t&&x.w===cur.w)||WEEKS[3];
+        setWeek(match);
+      }
+    }catch{ setGErr(true); setGames([]); }
+    setGLoad(false);
+  },[]);
+  useEffect(()=>{ loadScores(week); },[weekKey(week)]);
+
+  /* live polling — only while a live game is on screen */
+  useEffect(()=>{
+    if(!games.some(g=>g.state==='in')) return;
+    const t=setInterval(()=>loadScores(week),30000);
+    return ()=>clearInterval(t);
+  },[games,weekKey(week)]);
+
+  /* standings */
+  const loadStandings=useCallback(async()=>{
+    setSLoad(true); setSErr(false);
+    try{
+      const d=await fetchJSON(stUrl);
+      const entries=[];
+      const walk=n=>{ if(!n) return;
+        (n.standings?.entries||[]).forEach(e=>entries.push(e));
+        (n.children||[]).forEach(walk); };
+      walk(d);
+      const rows=entries.map(e=>{
+        const ab=e.team?.abbreviation; if(!byAb[ab]) return null;
+        const stat=n=>e.stats?.find(s=>s.name===n);
+        return {ab,rec:stat('overall')?.displayValue||`${stat('wins')?.displayValue??'0'}-${stat('losses')?.displayValue??'0'}`,
+                pct:stat('winPercent')?.displayValue||'', sort:parseFloat(stat('winPercent')?.value??0)};
+      }).filter(Boolean).sort((a,b)=>b.sort-a.sort);
+      setStandRows(rows); if(!rows.length) setSErr(true);
+    }catch{ setSErr(true); }
+    setSLoad(false);
+  },[]);
+  useEffect(()=>{ loadStandings(); },[]);
+
+  if(!fav) return <FirstRun onPick={ab=>{ setFav(ab); toast(byAb[ab].name+' locked in'); }}/>;
+
+  return <>
+    {tab!=='home' &&
+      <div className="hero-mini">
+        <img src={logo(fav)} alt=""/>
+        <span className="t">{tab==='scores'?'Scores':tab==='standings'?'Standings':'Sunday HQ'}</span>
+        <button className="icon-btn" aria-label="Settings" onClick={()=>setSettingsOpen(true)}>{Icons.gear}</button>
+      </div>}
+
+    {tab==='home' && <HomeTab fav={fav} setSettingsOpen={setSettingsOpen} onOpenGame={setSheetGame} toast={toast} standRows={standRows}/>}
+    {tab==='scores' && <ScoresTab fav={fav} week={week} setWeek={setWeek} games={games} loading={gLoad} error={gErr}
+                                  reload={()=>loadScores(week)} onOpen={setSheetGame}/>}
+    {tab==='standings' && <StandingsTab fav={fav} rows={standRows} loading={sLoad} error={sErr} reload={loadStandings}/>}
+
+    <nav className="nav">
+      {[['home','Home',Icons.home],['scores','Scores',Icons.scores],['standings','Standings',Icons.standings]].map(([k,l,ic])=>
+        <button key={k} className={tab===k?'on':''} onClick={()=>{haptic();setTab(k)}}>{ic}{l}</button>)}
+      <button onClick={()=>{haptic();setSettingsOpen(true)}}>{Icons.more}More</button>
+    </nav>
+
+    {sheetGame && <GameSheet g={sheetGame} onClose={()=>setSheetGame(null)} toast={toast}/>}
+    {settingsOpen && <SettingsSheet onClose={()=>setSettingsOpen(false)} fav={fav} setFav={setFav} toast={toast}/>}
+    <Toast msg={toastMsg}/>
+  </>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ErrorBoundary><App/></ErrorBoundary>);
+
+</script>
+</body>
+</html>
